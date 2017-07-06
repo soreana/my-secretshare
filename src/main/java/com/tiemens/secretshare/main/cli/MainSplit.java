@@ -16,8 +16,7 @@
  *******************************************************************************/
 package com.tiemens.secretshare.main.cli;
 
-import java.io.InputStream;
-import java.io.PrintStream;
+import java.io.*;
 import java.math.BigInteger;
 import java.security.SecureRandom;
 import java.util.List;
@@ -32,51 +31,44 @@ import com.tiemens.secretshare.math.BigIntUtilities;
 
 /**
  * Main command line for the "split" (aka "create") of a secret.
- *
+ * <p>
  * Takes a number of shares (n) and a threshold (k)
- *  and a secret (s) and creates the SecretShare.
+ * and a secret (s) and creates the SecretShare.
  *
  * @author tiemens
- *
  */
-public final class MainSplit
-{
+public final class MainSplit {
 
     /**
      * @param args from command line
      */
-    public static void main(String[] args)
-    {
+    public static void main(String[] args) {
         main(args, System.in, System.out);
     }
 
     public static void main(String[] args,
                             InputStream in,
-                            PrintStream out)
-    {
-        try
-        {
+                            PrintStream out) {
+        try {
             SplitInput input = SplitInput.parse(args);
             SplitOutput output = input.output();
             output.print(out);
-        }
-        catch (SecretShareException e)
-        {
+        } catch (SecretShareException e) {
             out.println(e.getMessage());
             usage(out);
             optionallyPrintStackTrace(args, e, out);
         }
     }
 
-    public static void usage(PrintStream out)
-    {
+    public static void usage(PrintStream out) {
         out.println("Usage:");
-        out.println(" split -k <k> -n <n> -sN|-sS <secret> " +               // required
-                    "  [-prime4096|-prime384|-prime192|-primeN] [-d <desc>] [-paranoid <p>] "); // optional
+        out.println(" split -k <k> -n <n> -sN|-sS|-sF <secret> " +               // required
+                "  [-prime4096|-prime384|-prime192|-primeN] [-d <desc>] [-paranoid <p>] "); // optional
         out.println("  -k <k>        the threshold");
         out.println("  -n <k>        the number of shares to generate");
         out.println("  -sN <secret>  the secret as a number, e.g. '-sN 124332' or '-sN bigintcs:01e5ac-787852'");
         out.println("  -sS <secret>  the secret as a string, e.g. '-sS MySecretString'");
+        out.println("  -sF <path>    the secret as a file, e.g. '-sS ./MySecretString.pem'");
         out.println("  -d <desc>     description of the secret");
         out.println("  -prime4096    for modulus, use built-in 4096-bit prime");
         out.println("  -prime384     for modulus, use built-in 384-bit prime [default]");
@@ -93,35 +85,24 @@ public final class MainSplit
     }
 
 
-
     public static BigInteger parseBigInteger(String argname,
                                              String[] args,
-                                             int index)
-    {
+                                             int index) {
         checkIndex(argname, args, index);
 
         String value = args[index];
         BigInteger ret = null;
-        if (BigIntUtilities.Checksum.couldCreateFromStringMd5CheckSum(value))
-        {
-            try
-            {
+        if (BigIntUtilities.Checksum.couldCreateFromStringMd5CheckSum(value)) {
+            try {
                 ret = BigIntUtilities.Checksum.createBigInteger(value);
-            }
-            catch (SecretShareException e)
-            {
+            } catch (SecretShareException e) {
                 String m = "Failed to parse 'bigintcs:' because: " + e.getMessage();
                 throw new SecretShareException(m, e);
             }
-        }
-        else
-        {
-            try
-            {
+        } else {
+            try {
                 ret = new BigInteger(value);
-            }
-            catch (NumberFormatException e)
-            {
+            } catch (NumberFormatException e) {
                 String m = "Failed to parse integer because: " + e.getMessage();
                 throw new SecretShareException(m, e);
             }
@@ -132,20 +113,16 @@ public final class MainSplit
 
     public static Integer parseInt(String argname,
                                    String[] args,
-                                   int index)
-    {
+                                   int index) {
         checkIndex(argname, args, index);
         String value = args[index];
 
         Integer ret = null;
-        try
-        {
+        try {
             ret = Integer.valueOf(value);
-        }
-        catch (NumberFormatException e)
-        {
+        } catch (NumberFormatException e) {
             String m = "The argument of '" + value + "' " +
-                               "is not a number.";
+                    "is not a number.";
             throw new SecretShareException(m, e);
         }
         return ret;
@@ -154,49 +131,41 @@ public final class MainSplit
 
     public static void checkIndex(String argname,
                                   String[] args,
-                                  int index)
-    {
-        if (index >= args.length)
-        {
+                                  int index) {
+        if (index >= args.length) {
             throw new SecretShareException("The argument '-" + argname + "' requires an " +
-                                           "additional argument");
+                    "additional argument");
         }
     }
 
     public static void optionallyPrintStackTrace(String[] args,
                                                  Exception e,
-                                                 PrintStream out)
-    {
+                                                 PrintStream out) {
         boolean print = false;
-        for (String s : args)
-        {
-            if (s != null)
-            {
+        for (String s : args) {
+            if (s != null) {
                 print = true;
             }
         }
-        if (print)
-        {
+        if (print) {
             e.printStackTrace(out);
         }
     }
 
-    private MainSplit()
-    {
+    private MainSplit() {
         // no instances
     }
 
 
-    public static class SplitInput
-    {
+    public static class SplitInput {
         // ==================================================
         // instance data
         // ==================================================
 
         // required arguments:
-        private Integer k           = null;
-        private Integer n           = null;
-        private BigInteger secret   = null;
+        private Integer k = null;
+        private Integer n = null;
+        private BigInteger secret = null;
 
         // optional: if 'secret' was given as a human-string, this is non-null
         // else this is null
@@ -225,126 +194,96 @@ public final class MainSplit
         // ==================================================
         // constructors
         // ==================================================
-        public static SplitInput parse(String[] args)
-        {
+        public static SplitInput parse(String[] args) {
             SplitInput ret = new SplitInput();
 
             boolean calculateModulus = false;
             boolean calculateModulusAuto = true;
-            for (int i = 0, n = args.length; i < n; i++)
-            {
-                if (args[i] == null)
-                {
+            for (int i = 0, n = args.length; i < n; i++) {
+                if (args[i] == null) {
                     continue;
                 }
 
-                if ("-k".equals(args[i]))
-                {
+                if ("-k".equals(args[i])) {
                     i++;
                     ret.k = parseInt("k", args, i);
-                }
-                else if ("-n".equals(args[i]))
-                {
+                } else if ("-n".equals(args[i])) {
                     i++;
                     ret.n = parseInt("n", args, i);
-                }
-                else if ("-d".equals(args[i]))
-                {
+                } else if ("-d".equals(args[i])) {
                     i++;
                     checkIndex("d", args, i);
                     ret.description = args[i];
-                }
-                else if ("-sN".equals(args[i]))
-                {
+                } else if ("-sN".equals(args[i])) {
                     i++;
                     ret.secretArgument = null;
                     ret.secret = parseBigInteger("sN", args, i);
-                }
-                else if ("-sS".equals(args[i]))
-                {
+                } else if ("-sS".equals(args[i])) {
                     i++;
                     ret.secretArgument = args[i];
                     ret.secret = BigIntUtilities.Human.createBigInteger(args[i]);
-                }
-                else if ("-r".equals(args[i]))
-                {
+                } else if ("-sF".equals(args[i])) {
                     i++;
-                    int seed =  parseInt("r", args, i);
+                    StringBuilder sb = new StringBuilder();
+                    String currentLine;
+                    try (BufferedReader br = new BufferedReader(new FileReader(args[i]))) {
+                        while ((currentLine = br.readLine()) != null) {
+                            sb.append(currentLine);
+                        }
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                    ret.secretArgument = sb.toString();
+                    ret.secret = BigIntUtilities.Human.createBigInteger(ret.secretArgument);
+                } else if ("-r".equals(args[i])) {
+                    i++;
+                    int seed = parseInt("r", args, i);
                     ret.random = new Random(seed);
-                }
-                else if ("-prime4096".equals(args[i]))
-                {
+                } else if ("-prime4096".equals(args[i])) {
                     ret.modulus = SecretShare.getPrimeUsedFor4096bigSecretPayload();
-                }
-                else if ("-prime384".equals(args[i]))
-                {
+                } else if ("-prime384".equals(args[i])) {
                     ret.modulus = SecretShare.getPrimeUsedFor384bitSecretPayload();
-                }
-                else if ("-prime192".equals(args[i]))
-                {
+                } else if ("-prime192".equals(args[i])) {
                     ret.modulus = SecretShare.getPrimeUsedFor192bitSecretPayload();
-                }
-                else if ("-primeAuto".equals(args[i]))
-                {
+                } else if ("-primeAuto".equals(args[i])) {
                     calculateModulus = true;
                     calculateModulusAuto = true;
-                }
-                else if (("-primeRandom".equals(args[i])) ||
-                         ("-primeN".equals(args[i])))    // backward-compatible
+                } else if (("-primeRandom".equals(args[i])) ||
+                        ("-primeN".equals(args[i])))    // backward-compatible
                 {
                     calculateModulus = true;
                     calculateModulusAuto = false;
-                }
-                else if ("-primeNone".equals(args[i]))
-                {
+                } else if ("-primeNone".equals(args[i])) {
                     calculateModulus = false;
                     ret.modulus = null;
-                }
-                else if ("-m".equals(args[i]))
-                {
+                } else if ("-m".equals(args[i])) {
                     calculateModulus = false;
                     i++;
                     final String thearg = args[i];
-                    if (BigIntUtilities.Checksum.couldCreateFromStringMd5CheckSum(thearg))
-                    {
+                    if (BigIntUtilities.Checksum.couldCreateFromStringMd5CheckSum(thearg)) {
                         ret.modulus = BigIntUtilities.Checksum.createBiscs(thearg).asBigInteger();
-                    }
-                    else
-                    {
+                    } else {
                         ret.modulus = new BigInteger(thearg);
                     }
-                }
-                else if ("-paranoid".equals(args[i]))
-                {
+                } else if ("-paranoid".equals(args[i])) {
                     i++;
-                    if ("all".equals(args[i]))
-                    {
+                    if ("all".equals(args[i])) {
                         ret.paranoid = -1;
-                    }
-                    else
-                    {
+                    } else {
                         ret.paranoid = parseInt("paranoid", args, i);
                     }
-                }
-                else if ("-printOne".equals(args[i]))
-                {
+                } else if ("-printOne".equals(args[i])) {
                     ret.printAllSharesAtOnce = true;
-                }
-                else if (args[i].startsWith("-printIndiv"))  // -printIndividual
+                } else if (args[i].startsWith("-printIndiv"))  // -printIndividual
                 {
                     ret.printAllSharesAtOnce = false;
-                }
-                else if (args[i].startsWith("-debugPrintEquationCoefficients"))
-                {
+                } else if (args[i].startsWith("-debugPrintEquationCoefficients")) {
                     ret.debugPrintEquationCoefficients = true;
-                }
-                else if (args[i].startsWith("-"))
-                {
+                } else if (args[i].startsWith("-")) {
                     String m = "Argument '" + args[i] + "' not understood";
                     throw new SecretShareException(m);
-                }
-                else
-                {
+                } else {
                     String m = "Extra argument '" + args[i] + "' not valid";
                     throw new SecretShareException(m);
                 }
@@ -354,43 +293,31 @@ public final class MainSplit
             checkRequired("-n", ret.n);
             checkRequired("-sN or -sS", ret.secret);
 
-            if (calculateModulus)
-            {
-                if (calculateModulusAuto)
-                {
+            if (calculateModulus) {
+                if (calculateModulusAuto) {
                     ret.modulus = SecretShare.createAppropriateModulusForSecret(ret.secret);
-                }
-                else
-                {
+                } else {
                     ret.modulus = SecretShare.createRandomModulusForSecret(ret.secret);
                 }
             }
 
-            if (ret.modulus != null)
-            {
-                if (! SecretShare.isTheModulusAppropriateForSecret(ret.modulus, ret.secret))
-                {
+            if (ret.modulus != null) {
+                if (!SecretShare.isTheModulusAppropriateForSecret(ret.modulus, ret.secret)) {
                     final String originalString;
-                    if (ret.secretArgument != null)
-                    {
+                    if (ret.secretArgument != null) {
                         originalString = "[" + ret.secretArgument + "]";
-                    }
-                    else
-                    {
+                    } else {
                         originalString = "";
                     }
 
                     final String sInfo;
                     String sAsString = "" + ret.secret;
-                    if (sAsString.length() < 25)
-                    {
+                    if (sAsString.length() < 25) {
                         sInfo = sAsString;
-                    }
-                    else
-                    {
+                    } else {
                         sInfo = "length is " + sAsString.length() + " digits";
                     }
-                    String m = "The secret " + originalString +  " (" + sInfo + ") is too big.  " +
+                    String m = "The secret " + originalString + " (" + sInfo + ") is too big.  " +
                             "Please adjust the prime modulus or use -primeNone";
 
                     throw new SecretShareException(m);
@@ -398,18 +325,15 @@ public final class MainSplit
                 }
             }
 
-            if (ret.random == null)
-            {
+            if (ret.random == null) {
                 ret.random = new SecureRandom();
             }
             return ret;
         }
 
         private static void checkRequired(String argname,
-                                          Object obj)
-        {
-            if (obj == null)
-            {
+                                          Object obj) {
+            if (obj == null) {
                 throw new SecretShareException("Argument '" + argname + "' is required.");
             }
         }
@@ -417,16 +341,15 @@ public final class MainSplit
         // ==================================================
         // public methods
         // ==================================================
-        public SplitOutput output()
-        {
+        public SplitOutput output() {
             SplitOutput ret = new SplitOutput(this);
             ret.setPrintAllSharesAtOnce(printAllSharesAtOnce);
 
             SecretShare.PublicInfo publicInfo =
-                new SecretShare.PublicInfo(this.n,
-                                           this.k,
-                                           this.modulus,
-                                           this.description);
+                    new SecretShare.PublicInfo(this.n,
+                            this.k,
+                            this.modulus,
+                            this.description);
 
             SecretShare secretShare = new SecretShare(publicInfo);
 
@@ -434,20 +357,16 @@ public final class MainSplit
 
             ret.splitSecretOutput = generate;
 
-            if (paranoid != null)
-            {
+            if (paranoid != null) {
                 Integer parg = paranoid;
-                if (parg < 0)
-                {
+                if (parg < 0) {
                     parg = null;
                 }
 
                 ret.paranoidOutput =
                         secretShare.combineParanoid(generate.getShareInfos(),
-                                                    parg);
-            }
-            else
-            {
+                                parg);
+            } else {
                 ret.paranoidOutput = null;
             }
 
@@ -460,8 +379,7 @@ public final class MainSplit
         // ==================================================
     }
 
-    public static class SplitOutput
-    {
+    public static class SplitOutput {
         private static final String SPACES = "                                              ";
         private boolean printAllSharesAtOnce = true;
 
@@ -469,33 +387,26 @@ public final class MainSplit
         private SplitSecretOutput splitSecretOutput;
         private ParanoidOutput paranoidOutput = null; // can be null
 
-        public SplitOutput(SplitInput inSplitInput)
-        {
+        public SplitOutput(SplitInput inSplitInput) {
             this(true, inSplitInput);
         }
 
-        public SplitOutput(boolean inPrintAllSharesAtOnce, SplitInput inSplitInput)
-        {
+        public SplitOutput(boolean inPrintAllSharesAtOnce, SplitInput inSplitInput) {
             printAllSharesAtOnce = inPrintAllSharesAtOnce;
             splitInput = inSplitInput;
         }
 
-        public void setPrintAllSharesAtOnce(boolean val)
-        {
+        public void setPrintAllSharesAtOnce(boolean val) {
             printAllSharesAtOnce = val;
         }
 
-        public void print(PrintStream out)
-        {
-            if (printAllSharesAtOnce)
-            {
+        public void print(PrintStream out) {
+            if (printAllSharesAtOnce) {
                 printParanoidCompleteOutput(out);
                 printPolynomialEquation(out);
                 printHeaderInfo(out);
                 printSharesAllAtOnce(out);
-            }
-            else
-            {
+            } else {
                 printPolynomialEquation(out);
                 printSharesOnePerPage(out);
             }
@@ -517,72 +428,72 @@ public final class MainSplit
         // non public methods
         // ==================================================
 
-        private void printPolynomialEquation(PrintStream out)
-        {
-            if (splitInput.debugPrintEquationCoefficients)
-            {
+        private void printPolynomialEquation(PrintStream out) {
+            if (splitInput.debugPrintEquationCoefficients) {
                 splitSecretOutput.debugPrintEquationCoefficients(out);
             }
         }
 
-        private boolean hasParanoidOutput()
-        {
+        private boolean hasParanoidOutput() {
             return (paranoidOutput != null);
         }
-        private void printParanoidCompleteOutput(PrintStream out)
-        {
-            if (hasParanoidOutput())
-            {
-                if (splitInput == null)
-                {
+
+        private void printParanoidCompleteOutput(PrintStream out) {
+            if (hasParanoidOutput()) {
+                if (splitInput == null) {
                     out.println("Programmer error: splitInput is null");
                 }
                 out.println(paranoidOutput.getParanoidCompleteOutput());
             }
         }
-        private void printParanoidHeaderOutput(PrintStream out)
-        {
-            if (hasParanoidOutput())
-            {
+
+        private void printParanoidHeaderOutput(PrintStream out) {
+            if (hasParanoidOutput()) {
 
                 out.println(paranoidOutput.getParanoidHeaderOutput());
             }
         }
 
-        private void printSharesOnePerPage(PrintStream out)
-        {
+        private void printSharesOnePerPage(PrintStream out) {
             final List<SecretShare.ShareInfo> shares = splitSecretOutput.getShareInfos();
             boolean first = true;
-            for (SecretShare.ShareInfo share : shares)
-            {
-                if (! first)
-                {
-                    printSeparatePage(out);
+            for (int i = 0; i < shares.size(); i++) {
+                try {
+                    FileOutputStream outputStream = new FileOutputStream("share_number_" + (i+1) + ".share");
+                    PrintStream printStream = new PrintStream(outputStream);
+
+                    ShareInfo share = shares.get(i);
+                    if (!first) {
+                        printSeparatePage(out);
+                    }
+                    first = false;
+
+                    printHeaderInfo(out);
+                    printHeaderInfo(printStream);
+
+                    if (hasParanoidOutput()) {
+                        out.println("(Re-)Combine testing performed and passed.");
+                        printParanoidHeaderOutput(out);
+                        printParanoidHeaderOutput(printStream);
+                    }
+
+                    printShare(out, share, false);
+                    printShare(printStream, share, false);
+                    printShare(out, share, true);
+                    printShare(printStream, share, true);
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
                 }
-                first = false;
-
-                printHeaderInfo(out);
-
-                if (hasParanoidOutput())
-                {
-                    out.println("(Re-)Combine testing performed and passed.");
-                    printParanoidHeaderOutput(out);
-                }
-
-                printShare(out, share, false);
-                printShare(out, share, true);
 
             }
 
         }
 
-        private void printSeparatePage(PrintStream out)
-        {
+        private void printSeparatePage(PrintStream out) {
             out.print("\u000C");
         }
 
-        private void printHeaderInfo(PrintStream out)
-        {
+        private void printHeaderInfo(PrintStream out) {
             final SecretShare.PublicInfo publicInfo = splitSecretOutput.getPublicInfo();
 
             field(out, "Secret Share version " + Main.getVersionString(), "");
@@ -596,75 +507,58 @@ public final class MainSplit
             markedValue(out, "modulus", publicInfo.getPrimeModulus(), true);
         }
 
-        private void printSharesAllAtOnce(PrintStream out)
-        {
+        private void printSharesAllAtOnce(PrintStream out) {
             List<SecretShare.ShareInfo> shares = splitSecretOutput.getShareInfos();
             out.println("");
-            for (SecretShare.ShareInfo share : shares)
-            {
+            for (SecretShare.ShareInfo share : shares) {
                 printShare(out, share, false);
             }
-            for (SecretShare.ShareInfo share : shares)
-            {
+            for (SecretShare.ShareInfo share : shares) {
                 printShare(out, share, true);
             }
         }
+
         private void markedValue(PrintStream out,
                                  String fieldname,
                                  BigInteger number,
-                                 boolean printAsBigIntCs)
-        {
+                                 boolean printAsBigIntCs) {
             String s;
-            if (number != null)
-            {
-                if (printAsBigIntCs)
-                {
+            if (number != null) {
+                if (printAsBigIntCs) {
                     s = BigIntUtilities.Checksum.createMd5CheckSumString(number);
-                }
-                else
-                {
+                } else {
                     s = number.toString();
                 }
                 out.println(fieldname + " = " + s);
-            }
-            else
-            {
+            } else {
                 // no modulus supplied, do nothing
             }
         }
+
         private void markedValue(PrintStream out,
                                  String fieldname,
-                                 int n)
-        {
+                                 int n) {
             out.println(fieldname + " = " + n);
         }
 
 
         private void field(PrintStream out,
                            String label,
-                           String value)
-        {
-            if (value != null)
-            {
+                           String value) {
+            if (value != null) {
                 String sep;
                 String pad;
                 if ((label.length() > 0) &&
-                    (! label.trim().equals("")))
-                {
+                        (!label.trim().equals(""))) {
                     pad = label + SPACES;
                     pad = pad.substring(0, 30);
-                    if (value.equals(""))
-                    {
+                    if (value.equals("")) {
                         pad = label;
                         sep = "";
-                    }
-                    else
-                    {
+                    } else {
                         sep = ": ";
                     }
-                }
-                else
-                {
+                } else {
                     pad = label;
                     sep = "";
                 }
@@ -675,8 +569,7 @@ public final class MainSplit
 
         private void printShare(PrintStream out,
                                 ShareInfo share,
-                                boolean printAsBigIntCs)
-        {
+                                boolean printAsBigIntCs) {
             markedValue(out, "Share (x:" + share.getIndex() + ")", share.getShare(), printAsBigIntCs);
         }
     } // class SplitOutput
